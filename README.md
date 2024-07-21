@@ -117,8 +117,8 @@ Tested on `RTX3090`, `SDXL`, `AYS 28 steps`, `batch size 1`, `896x1152`, `CFG=30
 | norm | Normalization function for error control. Step sizes are chosen so that `norm(error / (absolute_tolerance + relative_tolerance * y))` is approximately one. |
 | enable_dt_min | Enable clamping of the minimum step size to take to `dt_min`. |
 | enable_dt_max | Enable clamping of the maximum step size to take to `dt_max`. |
-| dt_min | The `dt_max` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. |
-| dt_max | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. Clamped to 0 by default to force a monotonic solve. |
+| dt_min | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. |
+| dt_max | The `dt_max` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. Clamped to 0 by default to force a monotonic solve. |
 | safety | Multiplicative safety factor. |
 | factormin | Minimum amount a step size can be decreased relative to the previous step. |
 | factormax | Maximum amount a step size can be increased relative to the previous step. |
