@@ -38,6 +38,9 @@ sh = logging.StreamHandler()
 sh.setFormatter(logging.Formatter(f"[ComfyUI-RK-Sampler] %(levelname)s - %(message)s"))
 logger.addHandler(sh)
 
+I_INF = 2**31 - 1
+F_INF = 1e38
+F_EPS = 1e-5
 ADAPTIVE_METHODS = {
     "ae_bosh3": AEBosh3,
     "ae_cash_karp5": AECashKarp5,
@@ -286,21 +289,27 @@ class RungeKuttaSampler:
             "required": {
                 "method": (list(METHODS.keys()), {"default": "ae_bosh3"}),
                 "step_size_controller": (list(STEP_SIZE_CONTROLLERS.keys()), {"default": "adaptive_pid"}),
-                "log_absolute_tolerance": ("FLOAT", {"default": -3.5}),
-                "log_relative_tolerance": ("FLOAT", {"default": -2.5}),
-                "pcoeff": ("FLOAT", {"min": 0, "default": 0.0}),
-                "icoeff": ("FLOAT", {"min": 0, "default": 1.0}),
-                "dcoeff": ("FLOAT", {"min": 0, "default": 0.0}),
+                "log_absolute_tolerance": (
+                    "FLOAT",
+                    {"default": -3.5, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False},
+                ),
+                "log_relative_tolerance": (
+                    "FLOAT",
+                    {"default": -2.5, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False},
+                ),
+                "pcoeff": ("FLOAT", {"default": 0.0, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
+                "icoeff": ("FLOAT", {"default": 1.0, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
+                "dcoeff": ("FLOAT", {"default": 0.0, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
                 "norm": (list(NORMS.keys()), {"default": "rms_norm"}),
                 "enable_dt_min": ("BOOLEAN", {"default": False}),
                 "enable_dt_max": ("BOOLEAN", {"default": True}),
-                "dt_min": ("FLOAT", {"default": -1.0}),
-                "dt_max": ("FLOAT", {"default": 0.0}),
-                "safety": ("FLOAT", {"min": 0, "default": 0.9}),
-                "factor_min": ("FLOAT", {"min": 0, "default": 0.2}),
-                "factor_max": ("FLOAT", {"min": 0, "default": 10}),
-                "max_steps": ("INT", {"min": 1, "default": 2**31 - 1}),
-                "min_sigma": ("FLOAT", {"min": 0, "default": 1e-5}),
+                "dt_min": ("FLOAT", {"default": -1.0, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False}),
+                "dt_max": ("FLOAT", {"default": 0.0, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False}),
+                "safety": ("FLOAT", {"default": 0.9, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
+                "factor_min": ("FLOAT", {"default": 0.2, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
+                "factor_max": ("FLOAT", {"default": 10, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
+                "max_steps": ("INT", {"default": I_INF, "min": 0, "max": I_INF, "step": 1, "round": False}),
+                "min_sigma": ("FLOAT", {"default": 1e-5, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
             }
         }
 
