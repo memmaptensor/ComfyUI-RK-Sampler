@@ -209,7 +209,7 @@ class RungeKuttaSamplerImpl:
         is_adaptive = self.step_size_controller.startswith("adaptive")
 
         if is_adaptive and (self.method in FIXED_METHODS):
-            raise ValueError("Fixed step methods must be used with fixed step size controllers")
+            raise ValueError("Fixed step size methods must be used with fixed step size controllers")
 
         term = torchode.ODETerm(
             ODETerm(

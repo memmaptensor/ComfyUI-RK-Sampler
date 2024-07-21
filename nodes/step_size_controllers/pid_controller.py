@@ -32,7 +32,6 @@ class PIDController(nn.Module):
         *,
         term: Optional[ODETerm] = None,
         norm: Callable[[DataTensor], NormTensor] = rms_norm,
-        force_monotonic_solve: Optional[bool] = True,
         dt_min: Optional[float] = None,
         dt_max: Optional[float] = None,
         safety: float = 0.9,
@@ -45,7 +44,6 @@ class PIDController(nn.Module):
         self.register_buffer("rtol", torch.tensor(rtol))
         self.term = term
         self.norm = norm
-        self.force_monotonic_solve = force_monotonic_solve
         self.dt_min = dt_min
         self.dt_max = dt_max
 
