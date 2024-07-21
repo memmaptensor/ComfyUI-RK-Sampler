@@ -19,7 +19,7 @@ ComfyUI Manager Menu > Install via Git URL > https://github.com/wootwootwootwoot
 ### Manual installation
 > From `ComfyUI/custom_nodes` and ComfyUI virtual environment
 ```
-git pull https://github.com/wootwootwootwoot/ComfyUI-RK-Sampler.git
+git clone https://github.com/wootwootwootwoot/ComfyUI-RK-Sampler.git
 pip install torchode
 ```
 
