@@ -1,0 +1,16 @@
+[project]
+name = "ComfyUI-RK-Sampler"
+description = "Batched Runge-Kutta Samplers for ComfyUI"
+version = "0.0.1"
+license = "LICENSE"
+dependencies = [
+  "torchode"
+]
+
+[project.urls]
+Repository = "https://github.com/wootwootwootwoot/ComfyUI-RK-Sampler"
+
+[tool.comfy]
+PublisherId = "wootwootwootwoot"
+DisplayName = "ComfyUI-RK-Sampler"
+Icon = ""
