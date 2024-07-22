@@ -73,8 +73,9 @@ cfg: 20
 
 ### Choose a method
 #### Step size controller support
-- Methods starting with `a` support both adaptive and fixed step size controllers.
-- Methods starting with `f` only support fixed step size controllers.
+- `adaptive_pid` supports methods starting with `a`.
+- `fixed_scheduled` supports methods starting with `a` or `f`.
+- `adaptive_scipy` supports methods starting with `s`.
 
 #### Recommended methods
 - Try `ae_bosh3`, `ae_dopri5`, and `ae_fehlberg5` with the PID adaptive step size controller.
@@ -104,26 +105,34 @@ Tested on `RTX3090`, `SDXL`, `AYS 28 steps`, `batch size 1`, `896x1152`, `CFG=30
 | 18 | `ae_fehlberg2` | Runge–Kutta–Fehlberg | 2 | 3 | 23.23s |
 | 19 | `ae_dopri8` | Dormand–Prince | 8 | 13 | 94.10s |
 
+#### Explicit methods from `scipy.integrate`
+These methods are wrapped implementations of explicit solvers from `scipy.integrate`.
+| Name | Method | Order | NFEs |
+| ----------- | ----------- | ----------- | ----------- |
+| se_RK23 | Runge-Kutta | 3 | 3 |
+| se_RK45 | Runge-Kutta | 5 | 6 |
+| se_DOP853 | Dormand-Prince | 8 | 13 | 
+
 ### Solver settings
-| Option | Description |
-| ----------- | ----------- |
-| method | Solver method. |
-| step_size_controller | Step size controller. **The rest of the settings only apply when `adaptive_pid` is selected.** For `fixed_scheduled`, the step count is determined by your scheduler. |
-| log_absolute_tolerance | $log_{10}$ of the threshold below which you do not worry about the accuracy of the solution since it is effectively 0. More negative $log_{10}$ values correspond to tighter tolerances and higher quality results. |
-| log_relative_tolerance | $log_{10}$ of the threshold for the relative error of a single step of the integrator. `log_relative_tolerance` cannot be more negative than `log_absolute_tolerance`. In practice, set the value for `log_relative_tolerance` to be 1 higher than `log_absolute_tolerance`. |
-| pcoeff | Coefficients for the proportional term of the PID controller. | 
-| icoeff | Coefficients for the integral term of the PID controller. P/I/D of 0/1/0 corresponds to a basic integral controller. | 
-| dcoeff | Coefficients for the derivative term of the PID controller. | 
-| norm | Normalization function for error control. Step sizes are chosen so that `norm(error / (absolute_tolerance + relative_tolerance * y))` is approximately one. |
-| enable_dt_min | Enable clamping of the minimum step size to take to `dt_min`. |
-| enable_dt_max | Enable clamping of the maximum step size to take to `dt_max`. |
-| dt_min | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. |
-| dt_max | The `dt_max` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. Clamped to 0 by default to force a monotonic solve. |
-| safety | Multiplicative safety factor. |
-| factormin | Minimum amount a step size can be decreased relative to the previous step. |
-| factormax | Maximum amount a step size can be increased relative to the previous step. |
-| max_steps | Maximum amount of steps an adaptive step size controller is allowed to take. Taking more steps than `max_steps` will return an error. **Does not apply to fixed step size controllers.** |
-| min_sigma | Lower bound for $\sigma$ to consider the IVP solve to be complete. |
+| Option | Applies to | Description |
+| ----------- | ----------- | ----------- |
+| method | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Solver method. |
+| step_size_controller | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Step size controller. For `fixed_scheduled`, the step count is determined by your scheduler. |
+| log_absolute_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold below which you do not worry about the accuracy of the solution since it is effectively 0. More negative $log_{10}$ values correspond to tighter tolerances and higher quality results. |
+| log_relative_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold for the relative error of a single step of the integrator. `log_relative_tolerance` cannot be more negative than `log_absolute_tolerance`. In practice, set the value for `log_relative_tolerance` to be 1 higher than `log_absolute_tolerance`. |
+| pcoeff | `adaptive_pid` | Coefficients for the proportional term of the PID controller. | 
+| icoeff | `adaptive_pid` | Coefficients for the integral term of the PID controller. P/I/D of 0/1/0 corresponds to a basic integral controller. | 
+| dcoeff | `adaptive_pid` | Coefficients for the derivative term of the PID controller. | 
+| norm | `adaptive_pid` | Normalization function for error control. Step sizes are chosen so that `norm(error / (absolute_tolerance + relative_tolerance * y))` is approximately one. |
+| enable_dt_min | `adaptive_pid` | Enable clamping of the minimum step size to take to `dt_min`. |
+| enable_dt_max | `adaptive_pid` | Enable clamping of the maximum step size to take to `dt_max`. |
+| dt_min | `adaptive_pid` | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. |
+| dt_max | `adaptive_pid` | The `dt_max` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. Clamped to 0 by default to force a monotonic solve. |
+| safety | `adaptive_pid` | Multiplicative safety factor. |
+| factormin | `adaptive_pid` | Minimum amount a step size can be decreased relative to the previous step. |
+| factormax | `adaptive_pid` | Maximum amount a step size can be increased relative to the previous step. |
+| max_steps | `adaptive_pid` | Maximum amount of steps an adaptive step size controller is allowed to take. Taking more steps than `max_steps` will return an error. |
+| min_sigma | `adaptive_pid`, `adaptive_scipy` | Lower bound for $\sigma$ to consider the IVP solve to be complete. |
 
 ## Comparison
 ### Related projects
@@ -148,3 +157,15 @@ Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `ae_bosh3 (ComfyUI-RK-Sampler
 The Runge-Kutta methods are a family of methods used for solving approximate solutions of ODEs by iterative discretization (or, if in diffusion terms, by sampling).
 
 Runge-Kutta methods generally have less discretization error than standard diffusion sampling methods, allowing for the use of high CFG scales (within practical limits) to create high-quality results without artifacts.
+
+## Changelog
+#### 22/07/24
+- Added wrappers for explicit solvers from `scipy.integrate`
+  - `se_RK23`
+  - `se_RK45`
+  - `se_DOP853`
+- Some notes about the wrapped scipy solvers
+  - To use the new solvers, select `adaptive_scipy` as the step size controller.
+  - No fixed step size controllers are available for wrapped scipy methods. 
+  - These methods do not support parallel IVP solve, meaning the batch elements are processed sequentially.
+  - Implicit solvers from `scipy.integrate` do not work for sampling diffusion models as the root finding step takes too long, so the implementation for them are skipped.

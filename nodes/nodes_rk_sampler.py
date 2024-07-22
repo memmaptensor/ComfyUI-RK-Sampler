@@ -1,8 +1,9 @@
 import logging
 
+import numpy as np
+import scipy.integrate
 import torch
 import torchode
-from tqdm.auto import tqdm
 
 import comfy
 import comfy.model_patcher
@@ -28,6 +29,8 @@ from .methods.fe_ralston3 import FERalston3
 from .methods.fe_ralston4 import FERalston4
 from .methods.fe_ssprk3 import FESSPRK3
 from .methods.fe_wray3 import FEWray3
+from .ode_terms.scipy_ode_term import SciPyODETerm
+from .ode_terms.torchode_ode_term import TorchODEODETerm
 from .step_size_controllers.pid_controller import PIDController
 from .step_size_controllers.scheduled_controller import ScheduledController
 
@@ -64,100 +67,23 @@ FIXED_METHODS = {
     "fe_ssprk3": FESSPRK3,
     "fe_wray3": FEWray3,
 }
-METHODS = {**ADAPTIVE_METHODS, **FIXED_METHODS}
+ADAPTIVE_SCIPY_METHODS = {
+    "se_RK23": {"ORDER": 3, "NFE_PER_STEP": 3},
+    "se_RK45": {"ORDER": 5, "NFE_PER_STEP": 6},
+    "se_DOP853": {"ORDER": 8, "NFE_PER_STEP": 13},
+}
+METHODS = {**ADAPTIVE_METHODS, **FIXED_METHODS, **ADAPTIVE_SCIPY_METHODS}
 STEP_SIZE_CONTROLLERS = dict.fromkeys(
     [
         "adaptive_pid",
         "fixed_scheduled",
+        "adaptive_scipy",
     ]
 )
 NORMS = {
     "rms_norm": torchode.step_size_controllers.rms_norm,
     "max_norm": torchode.step_size_controllers.max_norm,
 }
-
-
-class ODETerm:
-    def __init__(
-        self,
-        model,
-        x_dtype,
-        x_shape,
-        t_dtype,
-        min_sigma,
-        t_max,
-        t_min,
-        n_steps,
-        is_adaptive,
-        method,
-        extra_args=None,
-        callback=None,
-    ):
-        self.model = model
-        self.x_dtype = x_dtype
-        self.x_shape = x_shape
-        self.t_dtype = t_dtype
-        self.min_sigma = min_sigma
-        self.t_max = t_max
-        self.t_min = t_min
-        self.n_steps = n_steps
-        self.is_adaptive = is_adaptive
-        self.method = method
-        self.extra_args = {} if extra_args is None else extra_args
-        self.callback = callback
-        self.step = 0
-        self.nfe_step = 0
-
-        if is_adaptive:
-            self.progress_bar = tqdm(total=100, desc=f"Adaptive {method}", unit="%")
-        else:
-            self.progress_bar = tqdm(total=n_steps, desc=f"Fixed {method}", unit="step")
-
-    def _callback(self, t, y, denoised, mask):
-        if self.is_adaptive:
-            progress = ((self.t_max - t) / (self.t_max - self.t_min)).detach().mean().item()
-            d_progress = progress * 100
-            self.progress_bar.update(d_progress - self.step)
-            self.step = d_progress
-            i = round(progress * self.n_steps)
-        else:
-            self.progress_bar.update(1)
-            self.step += 1
-            i = self.step
-
-        if self.callback is not None:
-            samples = torch.where(
-                mask.view(*mask.shape, 1, 1, 1),
-                y,
-                denoised,
-            )
-            self.callback(
-                {
-                    "x": y.to(self.x_dtype),
-                    "i": i - 1,
-                    "sigma": t.to(self.t_dtype),
-                    "sigma_hat": t.to(self.t_dtype),
-                    "denoised": samples.to(self.x_dtype),
-                }
-            )
-
-    def __call__(self, t, y):
-        mask = t <= self.min_sigma
-        y = y.reshape(self.x_shape)
-        denoised = torch.zeros_like(y)
-        if not mask.all():
-            denoised[~mask] = self.model(y[~mask], t[~mask], **self.extra_args)
-        d = torch.where(
-            mask.view(*mask.shape, 1, 1, 1),
-            torch.zeros_like(y),
-            (y - denoised) / t.view(*t.shape, 1, 1, 1),
-        )
-
-        self.nfe_step += 1
-        if self.nfe_step % METHODS[self.method].NFE_PER_STEP == 0:
-            self._callback(t, y, denoised, mask)
-
-        return d.flatten(start_dim=1)
 
 
 class RungeKuttaSamplerImpl:
@@ -181,11 +107,12 @@ class RungeKuttaSamplerImpl:
         max_steps,
         min_sigma,
     ):
+        if log_absolute_tolerance > log_relative_tolerance:
+            raise ValueError("log_absolute_tolerance must be less than or equal to log_relative_tolerance")
         self.method = method
         self.step_size_controller = step_size_controller
         self.atol = 10**log_absolute_tolerance
         self.rtol = 10**log_relative_tolerance
-        assert self.atol <= self.rtol
         self.pcoeff = pcoeff
         self.icoeff = icoeff
         self.dcoeff = dcoeff
@@ -201,28 +128,35 @@ class RungeKuttaSamplerImpl:
         self.min_sigma = min_sigma
 
     @torch.no_grad()
-    def __call__(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
-        dtype = torch.float32 if torch.backends.mps.is_available() else torch.float64
-        t_max = sigmas.max()
-        t_min = sigmas.min()
+    def _call_torchode(
+        self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None
+    ):
+        c_device = "cpu"
+        c_dtype = torch.float64
+        o_device = x.device
+        o_dtype = x.dtype
+        o_shape = x.shape
+        x = x.detach().to(c_device, dtype=c_dtype)
+        sigmas = sigmas.detach().to(c_device, dtype=c_dtype)
+        t_max = sigmas.max().item()
+        t_min = sigmas.min().item()
         n_steps = len(sigmas) - 1
-        is_adaptive = self.step_size_controller.startswith("adaptive")
-
-        if is_adaptive and (self.method in FIXED_METHODS):
-            raise ValueError("Fixed step size methods must be used with fixed step size controllers")
 
         term = torchode.ODETerm(
-            ODETerm(
+            TorchODEODETerm(
                 model=model,
-                x_dtype=x.dtype,
-                x_shape=x.shape,
-                t_dtype=sigmas.dtype,
-                min_sigma=self.min_sigma if is_adaptive else 0.0,
+                c_device=c_device,
+                c_dtype=c_dtype,
+                o_device=o_device,
+                o_dtype=o_dtype,
+                o_shape=o_shape,
+                min_sigma=self.min_sigma,
                 t_max=t_max,
                 t_min=t_min,
                 n_steps=n_steps,
-                is_adaptive=is_adaptive,
+                step_size_controller=self.step_size_controller,
                 method=self.method,
+                nfe_per_step=METHODS[self.method].NFE_PER_STEP,
                 extra_args=extra_args,
                 callback=callback,
             )
@@ -249,24 +183,29 @@ class RungeKuttaSamplerImpl:
         step_method = METHODS[self.method](term=term)
         adjoint = torchode.AutoDiffAdjoint(step_method, step_size_controller, max_steps=self.max_steps)
         problem = torchode.InitialValueProblem(
-            y0=x.flatten(start_dim=1).to(dtype),
-            t_start=torch.full((x.shape[0],), t_max, dtype=dtype, device=sigmas.device),
-            t_end=torch.full((x.shape[0],), t_min, dtype=dtype, device=sigmas.device),
+            y0=x.flatten(start_dim=1),
+            t_start=torch.full((o_shape[0],), t_max, device=c_device, dtype=c_dtype),
+            t_end=torch.full((o_shape[0],), t_min, device=c_device, dtype=c_dtype),
+            t_eval=torch.full((o_shape[0], 1), t_min, device=c_device, dtype=c_dtype),
         )
         result = adjoint.solve(problem)
-        samples = result.ys[:, -1].reshape(x.shape).to(x.dtype)
+        samples = result.ys[:, -1].reshape(o_shape).to(o_device, dtype=o_dtype)
 
-        success = True
+        faults = []
         for i, status in enumerate(result.status):
             status = status.item()
             if status != 0:
-                success = False
                 samples[i] = torch.full_like(samples[i], torch.nan)
                 reason = torchode.status_codes.Status(status)
-                logger.warning(f"Sample #{i} failed with reason: {reason}")
+                faults.append(f"Sample #{i} failed with reason: {reason}")
 
-        if success:
+        if len(faults) == 0:
             term.f.progress_bar.update(term.f.progress_bar.total - term.f.progress_bar.n)
+            term.f.progress_bar.close()
+        else:
+            term.f.progress_bar.close()
+            for fault in faults:
+                logger.warning(fault)
 
         if callback is not None:
             callback(
@@ -280,6 +219,95 @@ class RungeKuttaSamplerImpl:
             )
 
         return samples
+
+    @torch.no_grad()
+    def _call_scipy(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
+        c_device = "cpu"
+        c_dtype = np.float64
+        o_device = x.device
+        o_dtype = x.dtype
+        o_shape = x.shape
+        x: np.ndarray = x.detach().to(c_device).numpy().astype(c_dtype)
+        sigmas: np.ndarray = sigmas.detach().to(c_device).numpy().astype(c_dtype)
+        t_max = sigmas.max()
+        t_min = sigmas.min()
+        n_steps = len(sigmas) - 1
+
+        samples = []
+        for i in range(o_shape[0]):
+            term = SciPyODETerm(
+                model=model,
+                c_device=c_device,
+                c_dtype=c_dtype,
+                o_device=o_device,
+                o_dtype=o_dtype,
+                o_shape=o_shape,
+                min_sigma=self.min_sigma,
+                t_max=t_max,
+                t_min=t_min,
+                n_steps=n_steps,
+                method=self.method,
+                nfe_per_step=METHODS[self.method]["NFE_PER_STEP"],
+                batch_element=i,
+                extra_args=extra_args,
+                callback=callback,
+            )
+
+            result = scipy.integrate.solve_ivp(
+                fun=term,
+                t_span=[t_max, t_min],
+                y0=x[i].reshape(-1),
+                method=self.method[3:],
+                t_eval=[t_min],
+                dense_output=False,
+                events=None,
+                vectorized=False,
+                args=None,
+                atol=self.atol,
+                rtol=self.rtol,
+            )
+
+            if result.success:
+                term.progress_bar.update(term.progress_bar.total - term.progress_bar.n)
+                term.progress_bar.close()
+                sample = torch.from_numpy(result.y[:, -1].reshape(o_shape[1:])).to(o_device, dtype=o_dtype)
+            else:
+                term.progress_bar.close()
+                sample = torch.full(o_shape[1:], np.nan, device=o_device, dtype=o_dtype)
+                logger.warning(f"Sample #{i} failed with reason: {result.message}")
+
+            samples.append(sample)
+
+        samples = torch.stack(samples)
+        if callback is not None:
+            callback(
+                {
+                    "x": samples,
+                    "i": n_steps - 1,
+                    "sigma": t_min,
+                    "sigma_hat": t_min,
+                    "denoised": samples,
+                }
+            )
+
+        return samples
+
+    @torch.no_grad()
+    def __call__(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
+        if self.step_size_controller == "adaptive_pid":
+            if self.method not in ADAPTIVE_METHODS:
+                raise ValueError("adaptive_pid only supports methods starting with `a`")
+            return self._call_torchode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
+        elif self.step_size_controller == "fixed_scheduled":
+            if (self.method not in ADAPTIVE_METHODS) and (self.method not in FIXED_METHODS):
+                raise ValueError("fixed_scheduled only supports methods staring with `a` or `f`")
+            return self._call_torchode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
+        elif self.step_size_controller == "adaptive_scipy":
+            if self.method not in ADAPTIVE_SCIPY_METHODS:
+                raise ValueError("adaptive_scipy only supports methods starting with `s`")
+            return self._call_scipy(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
+        else:
+            raise NotImplementedError()
 
 
 class RungeKuttaSampler:

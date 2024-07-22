@@ -4,7 +4,8 @@ description = "Batched Runge-Kutta Samplers for ComfyUI"
 version = "0.0.1"
 license = "LICENSE"
 dependencies = [
-  "torchode"
+  "torchode",
+  "scipy"
 ]
 
 [project.urls]

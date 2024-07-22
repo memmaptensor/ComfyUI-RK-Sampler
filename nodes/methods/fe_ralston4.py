@@ -5,14 +5,13 @@ import torch
 from torchode.interpolation import ThirdOrderPolynomialInterpolation
 from torchode.terms import ODETerm
 
-from .runge_kutta import ButcherTableau, ExplicitRungeKutta, ERKInterpolationData
-
-SQRT5 = sqrt(5)
+from .runge_kutta import ButcherTableau, ERKInterpolationData, ExplicitRungeKutta
 
 
 class FERalston4(ExplicitRungeKutta):
     ORDER = 4
     NFE_PER_STEP = 4
+    SQRT5 = sqrt(5)
     TABLEAU = ButcherTableau.from_lists(
         c=[0, 2 / 5, (14 - 3 * SQRT5) / 16, 1],
         a=[

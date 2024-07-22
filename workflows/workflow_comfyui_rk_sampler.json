@@ -1,13 +1,13 @@
 {
-  "last_node_id": 135,
-  "last_link_id": 191,
+  "last_node_id": 136,
+  "last_link_id": 192,
   "nodes": [
     {
       "id": 125,
       "type": "CLIPTextEncode",
       "pos": [
         110,
-        570
+        510
       ],
       "size": {
         "0": 400,
@@ -42,11 +42,11 @@
       ]
     },
     {
-      "id": 133,
-      "type": "EmptyLatentImage",
+      "id": 131,
+      "type": "AlignYourStepsScheduler",
       "pos": [
-        110,
-        830
+        540,
+        600
       ],
       "size": {
         "0": 315,
@@ -57,22 +57,175 @@
       "mode": 0,
       "outputs": [
         {
-          "name": "LATENT",
-          "type": "LATENT",
+          "name": "SIGMAS",
+          "type": "SIGMAS",
           "links": [
-            183
+            187
           ],
           "shape": 3,
           "slot_index": 0
         }
       ],
       "properties": {
-        "Node name for S&R": "EmptyLatentImage"
+        "Node name for S&R": "AlignYourStepsScheduler"
       },
       "widgets_values": [
-        896,
-        1152,
+        "SDXL",
+        28,
         1
+      ]
+    },
+    {
+      "id": 132,
+      "type": "VAEDecode",
+      "pos": [
+        1030,
+        610
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 188
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 189
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            190
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 124,
+      "type": "CLIPTextEncode",
+      "pos": [
+        110,
+        270
+      ],
+      "size": {
+        "0": 400,
+        "1": 200
+      },
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 184
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            181
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "girl, one eye closed, closed mouth, short brown hair, white shirt, black skirt, black bowtie, solo, looking at viewer, outdoors, shibuya, night, cinematic angle, upper body, closeup, waiving, masterpiece, best quality, very aesthetic, absurdres"
+      ]
+    },
+    {
+      "id": 128,
+      "type": "SamplerCustom",
+      "pos": [
+        890,
+        120
+      ],
+      "size": {
+        "0": 355.20001220703125,
+        "1": 442
+      },
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 180
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 181
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 182
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 192
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 187
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 183
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": null,
+          "shape": 3
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": [
+            188
+          ],
+          "shape": 3,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SamplerCustom"
+      },
+      "widgets_values": [
+        true,
+        12345,
+        "fixed",
+        30
       ]
     },
     {
@@ -80,7 +233,7 @@
       "type": "CheckpointLoaderSimple",
       "pos": [
         110,
-        180
+        120
       ],
       "size": {
         "0": 315,
@@ -127,11 +280,37 @@
       ]
     },
     {
-      "id": 131,
-      "type": "AlignYourStepsScheduler",
+      "id": 134,
+      "type": "SaveImage",
       "pos": [
-        540,
-        660
+        1270,
+        120
+      ],
+      "size": {
+        "0": 540,
+        "1": 750
+      },
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 190
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        ""
+      ]
+    },
+    {
+      "id": 133,
+      "type": "EmptyLatentImage",
+      "pos": [
+        110,
+        770
       ],
       "size": {
         "0": 315,
@@ -142,71 +321,30 @@
       "mode": 0,
       "outputs": [
         {
-          "name": "SIGMAS",
-          "type": "SIGMAS",
+          "name": "LATENT",
+          "type": "LATENT",
           "links": [
-            187
+            183
           ],
           "shape": 3,
           "slot_index": 0
         }
       ],
       "properties": {
-        "Node name for S&R": "AlignYourStepsScheduler"
+        "Node name for S&R": "EmptyLatentImage"
       },
       "widgets_values": [
-        "SDXL",
-        28,
+        896,
+        1152,
         1
       ]
     },
     {
-      "id": 132,
-      "type": "VAEDecode",
-      "pos": [
-        1030,
-        670
-      ],
-      "size": {
-        "0": 210,
-        "1": 46
-      },
-      "flags": {},
-      "order": 7,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 188
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 189
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            190
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "VAEDecode"
-      }
-    },
-    {
-      "id": 135,
+      "id": 136,
       "type": "RungeKuttaSampler",
       "pos": [
         540,
-        180
+        120
       ],
       "size": {
         "0": 315,
@@ -220,7 +358,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            191
+            192
           ],
           "shape": 3,
           "slot_index": 0
@@ -247,144 +385,6 @@
         10,
         2147483647,
         0.00001
-      ]
-    },
-    {
-      "id": 124,
-      "type": "CLIPTextEncode",
-      "pos": [
-        110,
-        330
-      ],
-      "size": {
-        "0": 400,
-        "1": 200
-      },
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 184
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            181
-          ],
-          "shape": 3,
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CLIPTextEncode"
-      },
-      "widgets_values": [
-        "girl, one eye closed, closed mouth, short brown hair, white shirt, black skirt, black bowtie, solo, looking at viewer, outdoors, shibuya, night, cinematic angle, upper body, closeup, waiving, masterpiece, best quality, very aesthetic, absurdres"
-      ]
-    },
-    {
-      "id": 134,
-      "type": "SaveImage",
-      "pos": [
-        1270,
-        180
-      ],
-      "size": {
-        "0": 560,
-        "1": 750
-      },
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 190
-        }
-      ],
-      "properties": {},
-      "widgets_values": [
-        ""
-      ]
-    },
-    {
-      "id": 128,
-      "type": "SamplerCustom",
-      "pos": [
-        890,
-        180
-      ],
-      "size": {
-        "0": 355.20001220703125,
-        "1": 442
-      },
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 180
-        },
-        {
-          "name": "positive",
-          "type": "CONDITIONING",
-          "link": 181
-        },
-        {
-          "name": "negative",
-          "type": "CONDITIONING",
-          "link": 182
-        },
-        {
-          "name": "sampler",
-          "type": "SAMPLER",
-          "link": 191
-        },
-        {
-          "name": "sigmas",
-          "type": "SIGMAS",
-          "link": 187
-        },
-        {
-          "name": "latent_image",
-          "type": "LATENT",
-          "link": 183
-        }
-      ],
-      "outputs": [
-        {
-          "name": "output",
-          "type": "LATENT",
-          "links": null,
-          "shape": 3
-        },
-        {
-          "name": "denoised_output",
-          "type": "LATENT",
-          "links": [
-            188
-          ],
-          "shape": 3,
-          "slot_index": 1
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "SamplerCustom"
-      },
-      "widgets_values": [
-        true,
-        12345,
-        "fixed",
-        30
       ]
     }
   ],
@@ -470,8 +470,8 @@
       "IMAGE"
     ],
     [
-      191,
-      135,
+      192,
+      136,
       0,
       128,
       3,
@@ -482,10 +482,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 1.0273559799477672,
+      "scale": 1,
       "offset": [
-        -44.73519293525939,
-        -53.259891666187556
+        0,
+        0
       ]
     },
     "groupNodes": {}
