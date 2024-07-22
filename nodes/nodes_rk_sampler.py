@@ -300,7 +300,7 @@ class RungeKuttaSamplerImpl:
             return self._call_torchode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
         elif self.step_size_controller == "fixed_scheduled":
             if (self.method not in ADAPTIVE_METHODS) and (self.method not in FIXED_METHODS):
-                raise ValueError("fixed_scheduled only supports methods staring with `a` or `f`")
+                raise ValueError("fixed_scheduled only supports methods starting with `a` or `f`")
             return self._call_torchode(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
         elif self.step_size_controller == "adaptive_scipy":
             if self.method not in ADAPTIVE_SCIPY_METHODS:

@@ -168,4 +168,4 @@ Runge-Kutta methods generally have less discretization error than standard diffu
   - To use the new solvers, select `adaptive_scipy` as the step size controller.
   - No fixed step size controllers are available for wrapped scipy methods. 
   - These methods do not support parallel IVP solve, meaning the batch elements are processed sequentially.
-  - Implicit solvers from `scipy.integrate` do not work for sampling diffusion models as the root finding step takes too long, so the implementation for them are skipped.
+  - Implicit solvers from `scipy.integrate` do not work for sampling diffusion models as the root finding step takes too long, so the implementation for them were skipped.
