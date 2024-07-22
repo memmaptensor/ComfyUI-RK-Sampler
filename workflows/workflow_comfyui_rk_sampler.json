@@ -280,32 +280,6 @@
       ]
     },
     {
-      "id": 134,
-      "type": "SaveImage",
-      "pos": [
-        1270,
-        120
-      ],
-      "size": {
-        "0": 540,
-        "1": 750
-      },
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 190
-        }
-      ],
-      "properties": {},
-      "widgets_values": [
-        ""
-      ]
-    },
-    {
       "id": 133,
       "type": "EmptyLatentImage",
       "pos": [
@@ -385,6 +359,32 @@
         10,
         2147483647,
         0.00001
+      ]
+    },
+    {
+      "id": 134,
+      "type": "SaveImage",
+      "pos": [
+        1270,
+        120
+      ],
+      "size": {
+        "0": 540,
+        "1": 750
+      },
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 190
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "txt2img"
       ]
     }
   ],
