@@ -331,7 +331,7 @@ class RungeKuttaSampler:
                 "norm": (list(NORMS.keys()), {"default": "rms_norm"}),
                 "enable_dt_min": ("BOOLEAN", {"default": False}),
                 "enable_dt_max": ("BOOLEAN", {"default": True}),
-                "dt_min": ("FLOAT", {"default": -1.0, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False}),
+                "dt_min": ("FLOAT", {"default": -0.1, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False}),
                 "dt_max": ("FLOAT", {"default": 0.0, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False}),
                 "safety": ("FLOAT", {"default": 0.9, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
                 "factor_min": ("FLOAT", {"default": 0.2, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),

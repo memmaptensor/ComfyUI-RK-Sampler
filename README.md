@@ -4,6 +4,8 @@
 #### Batched Runge-Kutta Samplers for [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 Supports most practical Explicit Runge-Kutta (ERK) methods.
 
+Tested on SD1.5, SDXL, and SD3.
+
 ## Features
 - Parallel ODE solvers for fast batch processing
 - Explicit and Embedded Explicit Runge-Kutta methods
@@ -20,7 +22,7 @@ ComfyUI Manager Menu > Install via Git URL > https://github.com/wootwootwootwoot
 > From `ComfyUI/custom_nodes` and ComfyUI virtual environment
 ```
 git clone https://github.com/wootwootwootwoot/ComfyUI-RK-Sampler.git
-pip install torchode
+pip install torchode scipy
 ```
 
 ## Usage
@@ -33,13 +35,20 @@ sampling > custom_sampling > samplers > Runge-Kutta Sampler
 ```
 
 ### Best defaults
+- These methods support normal as well as high CFG scales, but the results may depend on the specific model.
+- If you don't know the right step count or CFG scale:
+  1. Try the `adaptive_pid` controller with the base CFG and increment it until the results get worse.
+  2. Tune the CFG to the desired output.
+  3. Try the `fixed_scheduled` controller with AYS scheduler at 28 steps using the same CFG.
+  4. Tune the scheduler step count from 28 steps.
+- For SDXL, the best results I got were from CFG scales between 7-35
 ```
 Fixed step size
 method: fe_ralston3
 step_size_controller: fixed_scheduled
 scheduler: Align Your Steps
-steps: 28
-cfg: 20
+steps: 28-150
+cfg: 7-35
 ```
 ```
 Adaptive step size
@@ -53,36 +62,43 @@ dcoeff: 0
 norm: rms_norm
 enable_dt_min: false
 enable_dt_max: true
+dt_min: -0.1
 dt_max: 0
 safety: 0.9
 factor_min: 0.2
 factor_max: 10
 max_steps: 2147483647
-min_sigma: 0.00001
-cfg: 20
+min_sigma: 1e-5
+cfg: 7-35
 ```
 
 ### Choose a step size controller
-- These methods support normal as well as high CFG scales, but the results may depend on the specific model.
-- If you don't know the right step count or CFG scale:
-  1. Try the `adaptive_pid` controller with the base CFG and increment it until the results get worse.
-  2. Tune the CFG to the desired output.
-  3. Try the `fixed_scheduled` controller with AYS scheduler at 28 steps using the same CFG.
-  4. Tune the scheduler step count from 28 steps.
-- For SDXL, the best results I got were from CFG scales between 7-35
+> step_size_controller: Controller to determine the step size taken on each sampling step.
+> 
+> adaptive controllers: Automatically determines the step size(s). The scheduler choice and scheduler step count does not matter since they only use the start and end timesteps.
+>
+> fixed controllers: Uses the step size(s) provided by the scheduler. Works like a normal non-adaptive sampler in this case.
+
+- adaptive_pid: A proportional–integral–derivative (PID) controller. Works with `a`-class methods.
+- fixed_scheduled: A controller that uses the sigma (timestep) schedule from the scheduler. Works with `a`-class and `f`-class methods.
+- adaptive_scipy: A basic integral controller wrapped from scipy. Works with `s`-class methods.
 
 ### Choose a method
-#### Step size controller support
-- `adaptive_pid` supports methods starting with `a`.
-- `fixed_scheduled` supports methods starting with `a` or `f`.
-- `adaptive_scipy` supports methods starting with `s`.
+> method: Determines the solver method used.
+#### `a`, `f`, and `s` classes
+- `a` = adaptive, `f` = fixed, `s` = scipy, `e` = explicit
+- Use `a`-class methods with either 
+  - `adaptive_pid` for automatically determined step sizes/count.
+  - `fixed_scheduled` for scheduler determined step sizes/count.
+- Use `f`-class methods with `fixed_scheduled`.
+- Use `s`-class methods with `adaptive_scipy`.
 
 #### Recommended methods
-- Try `ae_bosh3`, `ae_dopri5`, and `ae_fehlberg5` with the PID adaptive step size controller.
-- Try `fe_ralston3`, `ae_bosh3`, and `fe_ssprk3` with the fixed step size controller.
+- Try `ae_bosh3`, `ae_dopri5`, and `ae_fehlberg5` with the `adaptive_pid` step size controller.
+- Try `fe_ralston3`, `ae_bosh3`, and `fe_ssprk3` with the `fixed_scheduled` step size controller.
 
 #### Quality ranking
-Tested on `RTX3090`, `SDXL`, `AYS 28 steps`, `batch size 1`, `896x1152`, `CFG=30`, `fixed_scheduled`
+Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `batch size 1`, `fixed_scheduled`, `AYS 28 steps`
 | Rank | Name | Method | Order | NFEs | Time |
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
 | 1 | `fe_ralston3` | Ralston | 3 | 3 | 23.08s |
@@ -117,8 +133,8 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 | Option | Applies to | Description |
 | ----------- | ----------- | ----------- |
 | method | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Solver method. |
-| step_size_controller | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Step size controller. For `fixed_scheduled`, the step count is determined by your scheduler. |
-| log_absolute_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold below which you do not worry about the accuracy of the solution since it is effectively 0. More negative $log_{10}$ values correspond to tighter tolerances and higher quality results. |
+| step_size_controller | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Step size controller. |
+| log_absolute_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold below which the solver does not worry about the accuracy of the solution since it is effectively 0. More negative $log_{10}$ values correspond to tighter tolerances and higher quality results. |
 | log_relative_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold for the relative error of a single step of the integrator. `log_relative_tolerance` cannot be more negative than `log_absolute_tolerance`. In practice, set the value for `log_relative_tolerance` to be 1 higher than `log_absolute_tolerance`. |
 | pcoeff | `adaptive_pid` | Coefficients for the proportional term of the PID controller. | 
 | icoeff | `adaptive_pid` | Coefficients for the integral term of the PID controller. P/I/D of 0/1/0 corresponds to a basic integral controller. | 
@@ -139,7 +155,7 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 This extension improves upon [ComfyUI-ODE](https://github.com/redhottensors/ComfyUI-ODE) by adding support for parallel processing, more controllability, high-quality live previews, a PID controller, and support for more fixed and adaptive step size solvers.
 
 ### Speed 
-Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `ae_bosh3 (ComfyUI-RK-Sampler) / bosh3 (ComfyUI-ODE)`, `adaptive_pid 0/1/0`, `log_absolute_tolerance=-3.5`, `log_relative_tolerance=-2.5`
+Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `adaptive_pid 0/1/0`, `ae_bosh3 (ComfyUI-RK-Sampler) / bosh3 (ComfyUI-ODE)`, `log_absolute_tolerance=-3.5`, `log_relative_tolerance=-2.5`
 | Batch size | ComfyUI-RK-Sampler | ComfyUI-ODE |
 | ----------- | ----------- | ----------- |
 | 1 | 1m2s | 1m6s |
@@ -169,4 +185,4 @@ Runge-Kutta methods generally have less discretization error than standard diffu
   - No fixed step size controllers are available for wrapped scipy methods. 
   - These methods do not support parallel IVP solve, meaning the batch elements are processed sequentially.
   - Implicit solvers from `scipy.integrate` do not work for sampling diffusion models as the root finding step takes too long, so the implementation for them were skipped.
-- The refactors from this update can cause the results to differ from the previous version. This is due to changes in floating point order operations and casting.
+- The refactors from this update can cause the results to differ from the previous version. This is due to changes in floating point precision casting and operation orders.
