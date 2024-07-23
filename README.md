@@ -147,7 +147,7 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 | safety | `adaptive_pid` | Multiplicative safety factor. |
 | factormin | `adaptive_pid` | Minimum amount a step size can be decreased relative to the previous step. |
 | factormax | `adaptive_pid` | Maximum amount a step size can be increased relative to the previous step. |
-| max_steps | `adaptive_pid` | Maximum amount of steps an adaptive step size controller is allowed to take. Taking more steps than `max_steps` will return an error. |
+| max_steps | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Maximum amount of steps an adaptive step size controller is allowed to take. Taking more steps than `max_steps` will return an error. |
 | min_sigma | `adaptive_pid`, `adaptive_scipy` | Lower bound for $\sigma$ to consider the IVP solve to be complete. |
 
 ## Comparison
