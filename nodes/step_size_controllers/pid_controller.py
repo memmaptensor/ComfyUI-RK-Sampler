@@ -19,7 +19,7 @@ class PIDController(nn.Module):
     References
     ----------
     [1] Söderlind, G. (2003). Digital Filters in Adaptive Time-Stepping. ACM
-        Transactions on Mathematical Software, 29, 1–26.
+        Transactions on Mathematical Software, 29, 1-26.
     """
 
     def __init__(

@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from tqdm.auto import tqdm
 
 
 class SciPyODETerm:
