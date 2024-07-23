@@ -15,7 +15,7 @@ Tested on SD1.5, SDXL, and SD3.
 ## Installation
 ### ComfyUI-Manager
 ```
-ComfyUI Manager Menu > Install via Git URL > https://github.com/wootwootwootwoot/ComfyUI-RK-Sampler.git
+ComfyUI Manager Menu > Custom Nodes Manager > ComfyUI-RK-Sampler > Install
 ```
 
 ### Manual installation
@@ -175,6 +175,9 @@ The Runge-Kutta methods are a family of methods used for solving approximate sol
 Runge-Kutta methods generally have less discretization error than standard diffusion sampling methods, allowing for the use of high CFG scales (within practical limits) to create high-quality results without artifacts.
 
 ## Changelog
+#### 23/07/24
+- Installation from ComfyUI-Manager
+- Multiple bugfixes and small refactors
 #### 22/07/24
 - Added wrappers for explicit solvers from `scipy.integrate`
   - `se_RK23`
