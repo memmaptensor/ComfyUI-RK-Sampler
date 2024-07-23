@@ -298,8 +298,8 @@ class RungeKuttaSamplerImpl:
                 )
 
                 if result.success:
-                    progress_bar.update(progress_bar.total - progress_bar.n)
                     sample = torch.from_numpy(result.y[:, -1].reshape(o_shape[1:])).to(o_device, dtype=o_dtype)
+                    progress_bar.update(progress_bar.total - progress_bar.n)
                 else:
                     sample = torch.full(o_shape[1:], np.nan, device=o_device, dtype=o_dtype)
 
