@@ -1,2 +1,1 @@
 torchode
-scipy
