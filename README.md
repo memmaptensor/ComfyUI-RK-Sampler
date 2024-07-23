@@ -125,9 +125,9 @@ Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `batch size 1`, `fixed_schedu
 These methods are wrapped implementations of explicit solvers from `scipy.integrate`.
 | Name | Method | Order | NFEs |
 | ----------- | ----------- | ----------- | ----------- |
-| se_RK23 | Runge-Kutta | 3 | 3 |
-| se_RK45 | Runge-Kutta | 5 | 6 |
-| se_DOP853 | Dormand-Prince | 8 | 13 | 
+| `se_RK23` | Runge-Kutta | 3 | 3 |
+| `se_RK45` | Runge-Kutta | 5 | 6 |
+| `se_DOP853` | Dormand-Prince | 8 | 13 | 
 
 ### Solver settings
 | Option | Applies to | Description |
