@@ -1,5 +1,4 @@
 import torch
-from tqdm.auto import tqdm
 
 
 class TorchODEODETerm:
@@ -15,9 +14,9 @@ class TorchODEODETerm:
         t_max,
         t_min,
         n_steps,
-        step_size_controller,
-        method,
         nfe_per_step,
+        progress_bar,
+        step_size_controller,
         extra_args=None,
         callback=None,
     ):
@@ -31,39 +30,22 @@ class TorchODEODETerm:
         self.t_max = t_max
         self.t_min = t_min
         self.n_steps = n_steps
-        self.step_size_controller = step_size_controller
-        self.method = method
         self.nfe_per_step = nfe_per_step
-        self.extra_args = {} if extra_args is None else extra_args
+        self.progress_bar = progress_bar
+        self.step_size_controller = step_size_controller
+        self.extra_args = extra_args or {}
         self.callback = callback
         self.step = 0
         self.nfe_step = 0
-
-        if step_size_controller == "adaptive_pid":
-            self.progress_bar = tqdm(
-                total=100,
-                desc=f"[{step_size_controller}] {method}",
-                unit="%",
-                bar_format="{desc}: {percentage:3.5f}%|{bar}| [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
-            )
-        else:
-            self.min_sigma = 0
-            self.progress_bar = tqdm(
-                total=n_steps,
-                desc=f"[{step_size_controller}] {method}",
-                unit="step",
-                bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
-            )
 
     def _callback(self, t, y, denoised, mask):
         if self.step_size_controller == "adaptive_pid":
             progress = ((self.t_max - t) / (self.t_max - self.t_min)).mean().item()
             percentage = progress * 100
             self.progress_bar.update(percentage - self.step)
-            self.progress_bar.refresh()
             self.step = percentage
             i = round(progress * self.n_steps)
-        else:
+        elif self.step_size_controller == "fixed_scheduled":
             self.progress_bar.update(1)
             self.step += 1
             i = self.step

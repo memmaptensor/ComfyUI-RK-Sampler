@@ -16,9 +16,8 @@ class SciPyODETerm:
         t_max,
         t_min,
         n_steps,
-        method,
         nfe_per_step,
-        batch_element,
+        progress_bar,
         extra_args=None,
         callback=None,
     ):
@@ -32,26 +31,17 @@ class SciPyODETerm:
         self.t_max = t_max
         self.t_min = t_min
         self.n_steps = n_steps
-        self.method = method
         self.nfe_per_step = nfe_per_step
-        self.batch_element = batch_element
-        self.extra_args = {} if extra_args is None else extra_args
+        self.progress_bar = progress_bar
+        self.extra_args = extra_args or {}
         self.callback = callback
         self.step = 0
         self.nfe_step = 0
-
-        self.progress_bar = tqdm(
-            total=100,
-            desc=f"({batch_element+1}/{o_shape[0]}) [adaptive_scipy] {method}",
-            unit="%",
-            bar_format="{desc}: {percentage:3.5f}%|{bar}| [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
-        )
 
     def _callback(self, t, y, denoised, mask):
         progress = (self.t_max - t) / (self.t_max - self.t_min)
         percentage = progress * 100
         self.progress_bar.update(percentage - self.step)
-        self.progress_bar.refresh()
         self.step = percentage
         i = round(progress * self.n_steps)
 
