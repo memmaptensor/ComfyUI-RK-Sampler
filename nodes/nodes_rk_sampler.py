@@ -159,6 +159,7 @@ class RungeKuttaSamplerImpl:
             )
         elif self.step_size_controller == "fixed_scheduled":
             self.min_sigma = 0
+            self.max_steps = I_INF
             progress_bar = tqdm(
                 total=n_steps,
                 desc=f"[{self.step_size_controller}] {self.method}",
