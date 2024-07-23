@@ -44,6 +44,15 @@ logger.addHandler(sh)
 I_INF = 2**31 - 1
 F_INF = 1e38
 F_EPS = 1e-5
+
+HAS_MPS = torch.backends.mps.is_available()
+try:
+    import torch_directml
+
+    HAS_DML = True
+except ModuleNotFoundError:
+    HAS_DML = False
+
 ADAPTIVE_METHODS = {
     "ae_bosh3": AEBosh3,
     "ae_cash_karp5": AECashKarp5,
@@ -131,8 +140,8 @@ class RungeKuttaSamplerImpl:
     def _call_torchode(
         self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None
     ):
-        c_device = "cpu"
-        c_dtype = torch.float64
+        c_device = "mps" if HAS_MPS else "cpu"
+        c_dtype = torch.float32 if (HAS_MPS or HAS_DML) else torch.float64
         o_device = x.device
         o_dtype = x.dtype
         o_shape = x.shape
@@ -222,8 +231,8 @@ class RungeKuttaSamplerImpl:
 
     @torch.no_grad()
     def _call_scipy(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
-        c_device = "cpu"
-        c_dtype = np.float64
+        c_device = "mps" if HAS_MPS else "cpu"
+        c_dtype = np.float32 if (HAS_MPS or HAS_DML) else np.float64
         o_device = x.device
         o_dtype = x.dtype
         o_shape = x.shape
@@ -307,7 +316,7 @@ class RungeKuttaSamplerImpl:
                 raise ValueError("adaptive_scipy only supports methods starting with `s`")
             return self._call_scipy(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable)
         else:
-            raise NotImplementedError()
+            assert False
 
 
 class RungeKuttaSampler:

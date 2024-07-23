@@ -58,10 +58,10 @@ class TorchODEODETerm:
     def _callback(self, t, y, denoised, mask):
         if self.step_size_controller == "adaptive_pid":
             progress = ((self.t_max - t) / (self.t_max - self.t_min)).mean().item()
-            d_progress = progress * 100
-            self.progress_bar.update(d_progress - self.step)
+            percentage = progress * 100
+            self.progress_bar.update(percentage - self.step)
             self.progress_bar.refresh()
-            self.step = d_progress
+            self.step = percentage
             i = round(progress * self.n_steps)
         else:
             self.progress_bar.update(1)

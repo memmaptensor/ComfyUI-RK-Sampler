@@ -49,10 +49,10 @@ class SciPyODETerm:
 
     def _callback(self, t, y, denoised, mask):
         progress = (self.t_max - t) / (self.t_max - self.t_min)
-        d_progress = progress * 100
-        self.progress_bar.update(d_progress - self.step)
+        percentage = progress * 100
+        self.progress_bar.update(percentage - self.step)
         self.progress_bar.refresh()
-        self.step = d_progress
+        self.step = percentage
         i = round(progress * self.n_steps)
 
         if self.callback is not None:

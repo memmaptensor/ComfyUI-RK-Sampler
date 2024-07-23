@@ -80,7 +80,7 @@ cfg: 7-35
 > fixed controllers: Uses the step size(s) provided by the scheduler. Works like a normal non-adaptive sampler in this case.
 
 - adaptive_pid: A proportional–integral–derivative (PID) controller. Works with `a`-class methods.
-- fixed_scheduled: A controller that uses the sigma (timestep) schedule from the scheduler. Works with `a`-class and `f`-class methods.
+- fixed_scheduled: A controller that uses the $\sigma$ (timestep) schedule from the scheduler. Works with `a`-class and `f`-class methods.
 - adaptive_scipy: A basic integral controller wrapped from scipy. Works with `s`-class methods.
 
 ### Choose a method
