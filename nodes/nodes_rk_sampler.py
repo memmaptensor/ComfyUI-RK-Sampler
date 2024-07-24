@@ -241,12 +241,19 @@ class RungeKuttaSamplerImpl:
             result = adjoint.solve(problem)
             samples = result.ys[:, -1].reshape(o_shape).to(o_device, dtype=o_dtype)
 
-        for i, status in enumerate(result.status):
-            status = status.item()
-            if status != 0:
-                samples[i] = torch.full_like(samples[i], torch.nan)
-                reason = torchode.status_codes.Status(status)
-                logger.warning(f"Sample #{i} failed with reason: {reason}")
+            faults = []
+            for i, status in enumerate(result.status):
+                status = status.item()
+                if status != 0:
+                    samples[i] = torch.full_like(samples[i], torch.nan)
+                    reason = torchode.status_codes.Status(status)
+                    faults.append(f"Sample #{i} failed with reason: {reason}")
+
+            if len(faults) == 0:
+                progress_bar.update(progress_bar.total - progress_bar.n)
+
+        for fault in faults:
+            logger.warning(fault)
 
         if callback is not None:
             callback(
@@ -331,6 +338,7 @@ class RungeKuttaSamplerImpl:
 
                 if result.success:
                     sample = torch.from_numpy(result.y[:, -1].reshape(o_shape[1:])).to(o_device, dtype=o_dtype)
+                    progress_bar.update(progress_bar.total - progress_bar.n)
                 else:
                     sample = torch.full(o_shape[1:], torch.nan, device=o_device, dtype=o_dtype)
 
