@@ -32,6 +32,8 @@ from .methods.fe_ssprk3 import FESSPRK3
 from .methods.fe_wray3 import FEWray3
 from .ode_terms.scipy_ode_term import SciPyODETerm
 from .ode_terms.torchode_ode_term import TorchODEODETerm
+from .solvers.auto_diff_adjoint import AutoDiffAdjoint
+from .step_size_controllers import scipy_step_impl
 from .step_size_controllers.pid_controller import PIDController
 from .step_size_controllers.scheduled_controller import ScheduledController
 
@@ -44,7 +46,7 @@ logger.addHandler(sh)
 
 I_INF = 2**31 - 1
 F_INF = 1e38
-F_EPS = 1e-5
+F_EPS = 1e-4
 
 HAS_MPS = torch.backends.mps.is_available()
 try:
@@ -80,7 +82,7 @@ FIXED_METHODS = {
 ADAPTIVE_SCIPY_METHODS = {
     "se_RK23": {"ORDER": 3, "NFE_PER_STEP": 3},
     "se_RK45": {"ORDER": 5, "NFE_PER_STEP": 6},
-    "se_DOP853": {"ORDER": 8, "NFE_PER_STEP": 13},
+    "se_DOP853": {"ORDER": 8, "NFE_PER_STEP": 12},
 }
 METHODS = {**ADAPTIVE_METHODS, **FIXED_METHODS, **ADAPTIVE_SCIPY_METHODS}
 STEP_SIZE_CONTROLLERS = dict.fromkeys(
@@ -94,6 +96,18 @@ NORMS = {
     "rms_norm": torchode.step_size_controllers.rms_norm,
     "max_norm": torchode.step_size_controllers.max_norm,
 }
+SCIPY_NORMS = {
+    "rms_norm": lambda x: np.linalg.norm(x / x.size**0.5, ord=2),
+    "max_norm": lambda x: np.linalg.norm(x, ord=np.inf),
+}
+
+F_DIGITS = 4
+P_BAR_FMT = lambda n_steps: (
+    f"{{desc}}: {{percentage:3.{F_DIGITS}f}}%|{{bar}}| {{n_fmt}}/{{total_fmt}} [{{elapsed}}<{{remaining}}, {{rate_fmt}}{{postfix}}]"
+    if n_steps is None
+    else f"{{desc}}: {{percentage:3.{F_DIGITS}f}}%|{{bar}}| {n_steps} [{{elapsed}}<{{remaining}}, {{rate_fmt}}{{postfix}}]"
+)
+P_BAR_PF = lambda t: {"σ": f"{t:.{F_DIGITS}f}"}
 
 
 class RungeKuttaSamplerImpl:
@@ -155,16 +169,19 @@ class RungeKuttaSamplerImpl:
                 total=100,
                 desc=f"[{self.step_size_controller}] {self.method}",
                 unit="%",
-                bar_format="{desc}: {percentage:3.5f}%|{bar}| [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
+                bar_format=P_BAR_FMT(0),
+                postfix=P_BAR_PF(t_max),
             )
+            progress_bar.postfix
         elif self.step_size_controller == "fixed_scheduled":
-            self.min_sigma = 0
+            self.min_sigma = t_min
             self.max_steps = I_INF
             progress_bar = tqdm(
                 total=n_steps,
                 desc=f"[{self.step_size_controller}] {self.method}",
                 unit="step",
-                bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
+                bar_format=P_BAR_FMT(None),
+                postfix=P_BAR_PF(t_max),
             )
 
         with progress_bar:
@@ -180,8 +197,9 @@ class RungeKuttaSamplerImpl:
                     t_max=t_max,
                     t_min=t_min,
                     n_steps=n_steps,
-                    nfe_per_step=METHODS[self.method].NFE_PER_STEP,
                     progress_bar=progress_bar,
+                    p_bar_fmt=P_BAR_FMT,
+                    p_bar_pf=P_BAR_PF,
                     step_size_controller=self.step_size_controller,
                     extra_args=extra_args,
                     callback=callback,
@@ -207,29 +225,28 @@ class RungeKuttaSamplerImpl:
                 step_size_controller = ScheduledController(sigmas=sigmas)
 
             step_method = METHODS[self.method](term=term)
-            adjoint = torchode.AutoDiffAdjoint(step_method, step_size_controller, max_steps=self.max_steps)
+            adjoint = AutoDiffAdjoint(
+                step_method,
+                step_size_controller,
+                max_steps=self.max_steps,
+                backprop_through_step_size_control=False,
+                dense_output=False,
+            )
             problem = torchode.InitialValueProblem(
                 y0=x.flatten(start_dim=1),
                 t_start=torch.full((o_shape[0],), t_max, device=c_device, dtype=c_dtype),
                 t_end=torch.full((o_shape[0],), t_min, device=c_device, dtype=c_dtype),
-                t_eval=torch.full((o_shape[0], 1), t_min, device=c_device, dtype=c_dtype),
+                t_eval=None,
             )
             result = adjoint.solve(problem)
             samples = result.ys[:, -1].reshape(o_shape).to(o_device, dtype=o_dtype)
 
-            faults = []
-            for i, status in enumerate(result.status):
-                status = status.item()
-                if status != 0:
-                    samples[i] = torch.full_like(samples[i], torch.nan)
-                    reason = torchode.status_codes.Status(status)
-                    faults.append(f"Sample #{i} failed with reason: {reason}")
-
-            if len(faults) == 0:
-                progress_bar.update(progress_bar.total - progress_bar.n)
-
-        for fault in faults:
-            logger.warning(fault)
+        for i, status in enumerate(result.status):
+            status = status.item()
+            if status != 0:
+                samples[i] = torch.full_like(samples[i], torch.nan)
+                reason = torchode.status_codes.Status(status)
+                logger.warning(f"Sample #{i} failed with reason: {reason}")
 
         if callback is not None:
             callback(
@@ -263,7 +280,8 @@ class RungeKuttaSamplerImpl:
                 total=100,
                 desc=f"({i+1}/{o_shape[0]}) [{self.step_size_controller}] {self.method}",
                 unit="%",
-                bar_format="{desc}: {percentage:3.5f}%|{bar}| [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
+                bar_format=P_BAR_FMT(0),
+                postfix=P_BAR_PF(t_max),
             )
 
             with progress_bar:
@@ -278,29 +296,41 @@ class RungeKuttaSamplerImpl:
                     t_max=t_max,
                     t_min=t_min,
                     n_steps=n_steps,
-                    nfe_per_step=METHODS[self.method]["NFE_PER_STEP"],
                     progress_bar=progress_bar,
+                    p_bar_fmt=P_BAR_FMT,
+                    p_bar_pf=P_BAR_PF,
                     extra_args=extra_args,
                     callback=callback,
                 )
 
+                scipy.integrate._ivp.rk.RungeKutta._step_impl = scipy_step_impl._step_impl
+                scipy.integrate._ivp.common.norm = SCIPY_NORMS[self.norm]
+                scipy_step_impl.DT_MIN = self.dt_min if self.enable_dt_min else None
+                scipy_step_impl.DT_MAX = self.dt_max if self.enable_dt_max else None
+                scipy_step_impl.SAFETY = self.safety
+                scipy_step_impl.MIN_FACTOR = self.factor_min
+                scipy_step_impl.MAX_FACTOR = self.factor_max
+                scipy_step_impl.MAX_STEPS = self.max_steps
+                scipy_step_impl.N_STEPS = 0
+                scipy_step_impl.TERM = term
                 result = scipy.integrate.solve_ivp(
                     fun=term,
                     t_span=[t_max, t_min],
                     y0=x[i].reshape(-1),
                     method=self.method[3:],
-                    t_eval=[t_min],
+                    t_eval=None,
                     dense_output=False,
                     events=None,
                     vectorized=False,
                     args=None,
+                    first_step=None,
+                    max_step=np.inf,
                     atol=self.atol,
                     rtol=self.rtol,
                 )
 
                 if result.success:
                     sample = torch.from_numpy(result.y[:, -1].reshape(o_shape[1:])).to(o_device, dtype=o_dtype)
-                    progress_bar.update(progress_bar.total - progress_bar.n)
                 else:
                     sample = torch.full(o_shape[1:], torch.nan, device=o_device, dtype=o_dtype)
 
@@ -310,6 +340,7 @@ class RungeKuttaSamplerImpl:
             samples.append(sample)
 
         samples = torch.stack(samples)
+
         if callback is not None:
             callback(
                 {
@@ -327,6 +358,10 @@ class RungeKuttaSamplerImpl:
     def __call__(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
         if self.atol > self.rtol:
             raise ValueError("log_absolute_tolerance must be less than or equal to log_relative_tolerance")
+        if self.dt_min > self.dt_max:
+            raise ValueError("dt_min must be less than or equal to dt_max")
+        if self.factor_min > self.factor_max:
+            raise ValueError("factor_min must be less than or equal to factor_max")
         if self.step_size_controller == "adaptive_pid":
             if self.method not in ADAPTIVE_METHODS:
                 raise ValueError("adaptive_pid controller only supports a-class methods")
@@ -364,12 +399,12 @@ class RungeKuttaSampler:
                 "norm": (list(NORMS.keys()), {"default": "rms_norm"}),
                 "enable_dt_min": ("BOOLEAN", {"default": False}),
                 "enable_dt_max": ("BOOLEAN", {"default": True}),
-                "dt_min": ("FLOAT", {"default": -0.1, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False}),
-                "dt_max": ("FLOAT", {"default": 0.0, "min": -F_INF, "max": F_INF, "step": F_EPS, "round": False}),
+                "dt_min": ("FLOAT", {"default": -0.1, "min": -F_INF, "max": 0, "step": F_EPS, "round": False}),
+                "dt_max": ("FLOAT", {"default": 0.0, "min": -F_INF, "max": 0, "step": F_EPS, "round": False}),
                 "safety": ("FLOAT", {"default": 0.9, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
                 "factor_min": ("FLOAT", {"default": 0.2, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
                 "factor_max": ("FLOAT", {"default": 10, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
-                "max_steps": ("INT", {"default": I_INF, "min": 0, "max": I_INF, "step": 1, "round": False}),
+                "max_steps": ("INT", {"default": I_INF, "min": 1, "max": I_INF, "step": 1, "round": False}),
                 "min_sigma": ("FLOAT", {"default": 1e-5, "min": 0, "max": F_INF, "step": F_EPS, "round": False}),
             }
         }

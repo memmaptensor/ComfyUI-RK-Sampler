@@ -15,8 +15,9 @@ class SciPyODETerm:
         t_max,
         t_min,
         n_steps,
-        nfe_per_step,
         progress_bar,
+        p_bar_fmt,
+        p_bar_pf,
         extra_args=None,
         callback=None,
     ):
@@ -30,29 +31,40 @@ class SciPyODETerm:
         self.t_max = t_max
         self.t_min = t_min
         self.n_steps = n_steps
-        self.nfe_per_step = nfe_per_step
         self.progress_bar = progress_bar
+        self.p_bar_fmt = p_bar_fmt
+        self.p_bar_pf = p_bar_pf
         self.extra_args = extra_args or {}
         self.callback = callback
+        self.n_callbacks = 0
         self.step = 0
-        self.nfe_step = 0
+        self.last_t = None
+        self.last_denoised = None
 
-    def _callback(self, t, y, denoised, mask):
+    def trigger_callback(self, t, y):
+        y = y.reshape(self.o_shape[1:])
+        mask = self.last_t <= self.min_sigma
+        self.n_callbacks += 1
+
         progress = (self.t_max - t) / (self.t_max - self.t_min)
         percentage = progress * 100
         self.progress_bar.update(percentage - self.step)
+        self.progress_bar.set_postfix(self.p_bar_pf(t))
+        self.progress_bar.bar_format = self.p_bar_fmt(self.n_callbacks)
+        self.progress_bar.refresh()
         self.step = percentage
         i = round(progress * self.n_steps)
 
         if self.callback is not None:
-            samples = y if mask else denoised
+            samples = y if mask else self.last_denoised
+            samples = torch.from_numpy(samples[np.newaxis, ...]).to(self.o_device, dtype=self.o_dtype)
             self.callback(
                 {
-                    "x": torch.from_numpy(y[np.newaxis, ...]).to(self.o_device, dtype=self.o_dtype),
+                    "x": samples,
                     "i": i - 1,
                     "sigma": t,
                     "sigma_hat": t,
-                    "denoised": torch.from_numpy(samples[np.newaxis, ...]).to(self.o_device, dtype=self.o_dtype),
+                    "denoised": samples,
                 }
             )
 
@@ -70,8 +82,6 @@ class SciPyODETerm:
             denoised = denoised_model[0].to(self.c_device).numpy().astype(self.c_dtype)
             d = (y - denoised) / t
 
-        self.nfe_step += 1
-        if self.nfe_step % self.nfe_per_step == 0:
-            self._callback(t, y, denoised, mask)
-
+        self.last_t = t
+        self.last_denoised = denoised
         return d.reshape(-1)

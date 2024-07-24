@@ -127,7 +127,7 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 | ----------- | ----------- | ----------- | ----------- |
 | `se_RK23` | Runge-Kutta | 3 | 3 |
 | `se_RK45` | Runge-Kutta | 5 | 6 |
-| `se_DOP853` | Dormand-Prince | 8 | 13 | 
+| `se_DOP853` | Dormand-Prince | 8 | 12 | 
 
 ### Solver settings
 | Option | Applies to | Description |
@@ -139,15 +139,15 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 | pcoeff | `adaptive_pid` | Coefficients for the proportional term of the PID controller. | 
 | icoeff | `adaptive_pid` | Coefficients for the integral term of the PID controller. P/I/D of 0/1/0 corresponds to a basic integral controller. | 
 | dcoeff | `adaptive_pid` | Coefficients for the derivative term of the PID controller. | 
-| norm | `adaptive_pid` | Normalization function for error control. Step sizes are chosen so that `norm(error / (absolute_tolerance + relative_tolerance * y))` is approximately one. |
-| enable_dt_min | `adaptive_pid` | Enable clamping of the minimum step size to take to `dt_min`. |
-| enable_dt_max | `adaptive_pid` | Enable clamping of the maximum step size to take to `dt_max`. |
-| dt_min | `adaptive_pid` | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. |
-| dt_max | `adaptive_pid` | The `dt_max` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. Clamped to 0 by default to force a monotonic solve. |
-| safety | `adaptive_pid` | Multiplicative safety factor. |
-| factormin | `adaptive_pid` | Minimum amount a step size can be decreased relative to the previous step. |
-| factormax | `adaptive_pid` | Maximum amount a step size can be increased relative to the previous step. |
-| max_steps | `adaptive_pid` | Maximum amount of steps an adaptive step size controller is allowed to take. Taking more steps than `max_steps` will return an error. |
+| norm | `adaptive_pid`, `adaptive_scipy` | Normalization function for error control. Step sizes are chosen so that `norm(error / (absolute_tolerance + relative_tolerance * y))` is approximately one. |
+| enable_dt_min | `adaptive_pid`, `adaptive_scipy` | Enable clamping of the minimum step size to take to `dt_min`. |
+| enable_dt_max | `adaptive_pid`, `adaptive_scipy` | Enable clamping of the maximum step size to take to `dt_max`. |
+| dt_min | `adaptive_pid`, `adaptive_scipy` | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. |
+| dt_max | `adaptive_pid`, `adaptive_scipy` | The `dt_max` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. Clamped to 0 by default to force a monotonic solve. |
+| safety | `adaptive_pid`, `adaptive_scipy` | Multiplicative safety factor. |
+| factormin | `adaptive_pid`, `adaptive_scipy` | Minimum amount a step size can be decreased relative to the previous step. |
+| factormax | `adaptive_pid`, `adaptive_scipy` | Maximum amount a step size can be increased relative to the previous step. |
+| max_steps | `adaptive_pid`, `adaptive_scipy` | Maximum amount of steps an adaptive step size controller is allowed to take. Taking more steps than `max_steps` will return an error. |
 | min_sigma | `adaptive_pid`, `adaptive_scipy` | Lower bound for $\sigma$ to consider the IVP solve to be complete. |
 
 ## Comparison
@@ -175,9 +175,15 @@ The Runge-Kutta methods are a family of methods used for solving approximate sol
 Runge-Kutta methods generally have less discretization error than standard diffusion sampling methods, allowing for the use of high CFG scales (within practical limits) to create high-quality results without artifacts.
 
 ## Changelog
+#### 24/07/24
+- Added solver settings for `adaptive_scipy`
+- Progress bar improvements
+  - Adaptive solvers now show the number of steps taken
+  - Accurate $\sigma$ info is now displayed
+- Bugfixes and small refactors
 #### 23/07/24
 - Installation from ComfyUI-Manager
-- Multiple bugfixes and small refactors
+- Bugfixes and small refactors
 #### 22/07/24
 - Added wrappers for explicit solvers from `scipy.integrate`
   - `se_RK23`

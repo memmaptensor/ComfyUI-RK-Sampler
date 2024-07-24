@@ -14,8 +14,9 @@ class TorchODEODETerm:
         t_max,
         t_min,
         n_steps,
-        nfe_per_step,
         progress_bar,
+        p_bar_fmt,
+        p_bar_pf,
         step_size_controller,
         extra_args=None,
         callback=None,
@@ -30,23 +31,36 @@ class TorchODEODETerm:
         self.t_max = t_max
         self.t_min = t_min
         self.n_steps = n_steps
-        self.nfe_per_step = nfe_per_step
         self.progress_bar = progress_bar
+        self.p_bar_fmt = p_bar_fmt
+        self.p_bar_pf = p_bar_pf
         self.step_size_controller = step_size_controller
         self.extra_args = extra_args or {}
         self.callback = callback
+        self.n_callbacks = 0
         self.step = 0
-        self.nfe_step = 0
+        self.last_t = None
+        self.last_denoised = None
 
-    def _callback(self, t, y, denoised, mask):
+    def trigger_callback(self, t, y):
+        y = y.reshape(self.o_shape)
+        mask = self.last_t <= self.min_sigma
+        self.n_callbacks += 1
+        t = t.mean().item()
+
         if self.step_size_controller == "adaptive_pid":
-            progress = ((self.t_max - t) / (self.t_max - self.t_min)).mean().item()
+            progress = (self.t_max - t) / (self.t_max - self.t_min)
             percentage = progress * 100
             self.progress_bar.update(percentage - self.step)
+            self.progress_bar.set_postfix(self.p_bar_pf(t))
+            self.progress_bar.bar_format = self.p_bar_fmt(self.n_callbacks)
+            self.progress_bar.refresh()
             self.step = percentage
             i = round(progress * self.n_steps)
         elif self.step_size_controller == "fixed_scheduled":
             self.progress_bar.update(1)
+            self.progress_bar.set_postfix(self.p_bar_pf(t))
+            self.progress_bar.refresh()
             self.step += 1
             i = self.step
 
@@ -54,15 +68,16 @@ class TorchODEODETerm:
             samples = torch.where(
                 mask.view(*mask.shape, 1, 1, 1),
                 y,
-                denoised,
+                self.last_denoised,
             )
+            samples = samples.to(self.o_device, dtype=self.o_dtype)
             self.callback(
                 {
-                    "x": y.to(self.o_device, dtype=self.o_dtype),
+                    "x": samples,
                     "i": i - 1,
-                    "sigma": t.max().item(),
-                    "sigma_hat": t.max().item(),
-                    "denoised": samples.to(self.o_device, dtype=self.o_dtype),
+                    "sigma": t,
+                    "sigma_hat": t,
+                    "denoised": samples,
                 }
             )
 
@@ -83,8 +98,6 @@ class TorchODEODETerm:
             (y - denoised) / t.view(*t.shape, 1, 1, 1),
         )
 
-        self.nfe_step += 1
-        if self.nfe_step % self.nfe_per_step == 0:
-            self._callback(t, y, denoised, mask)
-
+        self.last_t = t
+        self.last_denoised = denoised
         return d.flatten(start_dim=1)
