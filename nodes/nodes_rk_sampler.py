@@ -157,8 +157,8 @@ class RungeKuttaSamplerImpl:
         o_device = x.device
         o_dtype = x.dtype
         o_shape = x.shape
-        x = x.detach().to(c_device, dtype=c_dtype)
-        sigmas = sigmas.detach().to(c_device, dtype=c_dtype)
+        x = x.to(c_device, dtype=c_dtype)
+        sigmas = sigmas.to(c_device, dtype=c_dtype)
         t_max = sigmas.max().item()
         t_min = sigmas.min().item()
         n_steps = len(sigmas) - 1
@@ -273,8 +273,8 @@ class RungeKuttaSamplerImpl:
         o_device = x.device
         o_dtype = x.dtype
         o_shape = x.shape
-        x: np.ndarray = x.detach().to(c_device).numpy().astype(c_dtype)
-        sigmas: np.ndarray = sigmas.detach().to(c_device).numpy().astype(c_dtype)
+        x: np.ndarray = x.to(c_device).numpy().astype(c_dtype)
+        sigmas: np.ndarray = sigmas.to(c_device).numpy().astype(c_dtype)
         t_max = sigmas.max()
         t_min = sigmas.min()
         n_steps = len(sigmas) - 1
