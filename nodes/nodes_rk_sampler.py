@@ -149,7 +149,6 @@ class RungeKuttaSamplerImpl:
         self.max_steps = max_steps
         self.min_sigma = min_sigma
 
-    @torch.no_grad()
     def _call_torchode(
         self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None
     ):
@@ -268,7 +267,6 @@ class RungeKuttaSamplerImpl:
 
         return samples
 
-    @torch.no_grad()
     def _call_scipy(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
         c_device = "mps" if HAS_MPS else "cpu"
         c_dtype = np.float32 if (HAS_MPS or HAS_DML) else np.float64
@@ -362,7 +360,6 @@ class RungeKuttaSamplerImpl:
 
         return samples
 
-    @torch.no_grad()
     def __call__(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
         if self.atol > self.rtol:
             raise ValueError("log_absolute_tolerance must be less than or equal to log_relative_tolerance")

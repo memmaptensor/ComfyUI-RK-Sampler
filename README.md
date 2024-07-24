@@ -174,15 +174,18 @@ The Runge-Kutta methods are a family of methods used for solving approximate sol
 
 Runge-Kutta methods generally have less discretization error than standard diffusion sampling methods, allowing for the use of high CFG scales (within practical limits) to create high-quality results without artifacts.
 
-## Conditions for adding new solvers
+## Conditions for new solvers and methods
 - No implicit solvers
-  - Implicit solvers require root-finding, meaning a Jacobian has to be computed by running a backward pass through the model during LBFGS optimization.
+  - Implicit solvers require root-finding.
+  - This means a backward pass through the model has to be ran to compute the Jacobian.
+  - The Jacobian is then used during LBFGS optimization.
+  - This is also **very** costly in terms of compute and memory usage.
 - No non-RK methods
   - This would cut off linear multistep methods like Adams-Bashforth or Adams predictor-corrector.
   - From my testing, RK methods perform better, even for explicit RK vs. predictor-corrector linear multistep.
 - No duplicate methods
   - If two methods have different coefficients, they aren't duplicates.
-  - SciPy methods have different coefficients and solver implementations.
+  - SciPy methods have different coefficients and implementations.
 
 ## Changelog
 #### 24/07/24
