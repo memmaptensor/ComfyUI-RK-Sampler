@@ -117,7 +117,7 @@ Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `batch size 1`, `fixed_schedu
 | 14 | `fe_wray3` | van der Houwen and Wray | 3 | 3 | 22.96s |
 | 15 | `fe_heun3` | Heun | 3 | 3 | 23.13s |
 | 16 | `ae_tsit5` | Tsitouras | 5 | 6 | 43.90s |
-| 17 | `ae_midpoint2` | Implicit midpoint | 2 | 2 | 15.97s |
+| 17 | `ae_midpoint2` | Explicit midpoint | 2 | 2 | 15.97s |
 | 18 | `ae_fehlberg2` | Runge–Kutta–Fehlberg | 2 | 3 | 23.23s |
 | 19 | `ae_dopri8` | Dormand–Prince | 8 | 13 | 94.10s |
 
@@ -174,6 +174,16 @@ The Runge-Kutta methods are a family of methods used for solving approximate sol
 
 Runge-Kutta methods generally have less discretization error than standard diffusion sampling methods, allowing for the use of high CFG scales (within practical limits) to create high-quality results without artifacts.
 
+## Conditions for adding new solvers
+- No implicit solvers
+  - Implicit solvers require root-finding, meaning a Jacobian has to be computed by running a backward pass through the model during LBFGS optimization.
+- No non-RK methods
+  - This would cut off linear multistep methods like Adams-Bashforth or Adams predictor-corrector.
+  - From my testing, RK methods perform better, even for explicit RK vs. predictor-corrector linear multistep.
+- No duplicate methods
+  - If two methods have different coefficients, they aren't duplicates.
+  - SciPy methods have different coefficients and solver implementations.
+
 ## Changelog
 #### 24/07/24
 - Added solver settings for `adaptive_scipy`
@@ -193,5 +203,5 @@ Runge-Kutta methods generally have less discretization error than standard diffu
   - To use the new solvers, select `adaptive_scipy` as the step size controller.
   - No fixed step size controllers are available for wrapped scipy methods. 
   - These methods do not support parallel IVP solve, meaning the batch elements are processed sequentially.
-  - Implicit solvers from `scipy.integrate` do not work for sampling diffusion models as the root finding step takes too long, so the implementation for them were skipped.
+  - Implicit solvers from `scipy.integrate` were skipped as the root finding step takes too long.
 - The refactors from this update can cause the results to differ from the previous version. This is due to changes in floating point precision casting and operation orders.
