@@ -41,7 +41,7 @@ sampling > custom_sampling > samplers > Runge-Kutta Sampler
   - Try the `adaptive_pid` controller with the base CFG and increment it until the results get worse.
   - Tune the CFG to the desired output.
   - Try the `fixed_scheduled` controller:
-    - Use the Align Your Steps scheduler.
+    - Use the `Align Your Steps` scheduler.
     - Set the scheduler's step count to be the same as the number of steps taken by the `adaptive_pid` controller.
     - Leave the CFG scale unchanged.
   - Tune the scheduler step count.
@@ -108,7 +108,7 @@ cfg: 7-35
 - Try `fe_ralston3`, `ae_bosh3`, and `fe_ssprk3` with the `fixed_scheduled` step size controller.
 
 #### Quality ranking
-Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `batch size 1`, `fixed_scheduled`, `Align Your Steps 28 steps`
+Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `batch size 1`, `fixed_scheduled`, `Align Your Steps`, `28 steps`.
 | Rank | Name | Method | Order | NFEs | Time |
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
 | 1 | `fe_ralston3` | Ralston | 3 | 3 | 23.08s |
@@ -144,19 +144,19 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 | ----------- | ----------- | ----------- |
 | method | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Solver method. |
 | step_size_controller | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Step size controller. |
-| log_absolute_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold below which the solver does not worry about the accuracy of the solution since it is effectively 0. More negative $log_{10}$ values correspond to more strict tolerances and higher quality results. |
-| log_relative_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold for the relative error of a single step of the integrator. `log_relative_tolerance` cannot be more negative than `log_absolute_tolerance`. In practice, set the value for `log_relative_tolerance` to be 1 higher than `log_absolute_tolerance`. |
+| log_absolute_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold below which the solver does not worry about the accuracy of the solution since it is effectively 0. `log_absolute_tolerance` must be less than or equal to `log_relative_tolerance`. |
+| log_relative_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold for the relative error of a single step of the integrator. |
 | pcoeff | `adaptive_pid` | Coefficients for the proportional term of the PID controller. | 
 | icoeff | `adaptive_pid` | Coefficients for the integral term of the PID controller. P/I/D of 0/1/0 corresponds to a basic integral controller. | 
 | dcoeff | `adaptive_pid` | Coefficients for the derivative term of the PID controller. | 
 | norm | `adaptive_pid`, `adaptive_scipy` | Normalization function for error control. Step sizes are chosen so that `norm(error / (absolute_tolerance + relative_tolerance * y))` is approximately one. |
 | enable_dt_min | `adaptive_pid`, `adaptive_scipy` | Enable clamping of the minimum step size to take to `dt_min`. |
 | enable_dt_max | `adaptive_pid`, `adaptive_scipy` | Enable clamping of the maximum step size to take to `dt_max`. |
-| dt_min | `adaptive_pid`, `adaptive_scipy` | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. |
+| dt_min | `adaptive_pid`, `adaptive_scipy` | The `dt_min` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. `dt_min` must be less than or equal to `dt_max`. |
 | dt_max | `adaptive_pid`, `adaptive_scipy` | The `dt_max` value to clamp to. Since we are solving a reverse-time ODE, this value should be negative. Clamped to 0 by default to force a monotonic solve. |
 | safety | `adaptive_pid`, `adaptive_scipy` | Multiplicative safety factor. |
-| factormin | `adaptive_pid`, `adaptive_scipy` | Minimum amount a step size can be decreased relative to the previous step. |
-| factormax | `adaptive_pid`, `adaptive_scipy` | Maximum amount a step size can be increased relative to the previous step. |
+| factor_min | `adaptive_pid`, `adaptive_scipy` | Minimum amount a step size can be decreased relative to the previous step. `factor_min` must be less than or equal to `factor_max`. |
+| factor_max | `adaptive_pid`, `adaptive_scipy` | Maximum amount a step size can be increased relative to the previous step. |
 | max_steps | `adaptive_pid`, `adaptive_scipy` | Maximum amount of steps an adaptive step size controller is allowed to take. Taking more steps than `max_steps` will return an error. |
 | min_sigma | `adaptive_pid`, `adaptive_scipy` | Lower bound for $\sigma$ to consider the IVP solve to be complete. |
 
@@ -165,7 +165,7 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 This extension improves upon [ComfyUI-ODE](https://github.com/redhottensors/ComfyUI-ODE) by adding support for parallel processing, more controllability, high-quality live previews, a PID controller, and support for more fixed and adaptive step size solvers.
 
 ### Speed 
-Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `adaptive_pid 0/1/0`, `ae_bosh3 (ComfyUI-RK-Sampler) / bosh3 (ComfyUI-ODE)`, `log_absolute_tolerance=-3.5`, `log_relative_tolerance=-2.5`
+Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `adaptive_pid 0/1/0`, `ae_bosh3 (ComfyUI-RK-Sampler) / bosh3 (ComfyUI-ODE)`, `log_absolute_tolerance=-3.5`, `log_relative_tolerance=-2.5`.
 | Batch size | ComfyUI-RK-Sampler | ComfyUI-ODE |
 | ----------- | ----------- | ----------- |
 | 1 | 1m2s | 1m6s |
