@@ -19,7 +19,7 @@ ComfyUI Manager Menu > Custom Nodes Manager > ComfyUI-RK-Sampler > Install
 ```
 
 ### Manual installation
-> From `ComfyUI/custom_nodes` and ComfyUI virtual environment
+> From `ComfyUI/custom_nodes` and ComfyUI virtual environment:
 ```
 git clone https://github.com/wootwootwootwoot/ComfyUI-RK-Sampler.git
 pip install torchode
@@ -29,13 +29,14 @@ pip install torchode
 ![workflow](./workflows/workflow_comfyui_rk_sampler.png)
 [Basic workflow](./workflows/workflow_comfyui_rk_sampler.json)
 
-> From `Add Node`
+> From `Add Node`:
 ```
 sampling > custom_sampling > samplers > Runge-Kutta Sampler
 ```
 
 ### Best defaults
 - These methods support normal as well as high CFG scales, but the results may depend on the specific model.
+- For SDXL, the best results I got were from CFG scales between 7-35.
 - If you don't know the right step count or CFG scale:
   - Try the `adaptive_pid` controller with the base CFG and increment it until the results get worse.
   - Tune the CFG to the desired output.
@@ -44,17 +45,14 @@ sampling > custom_sampling > samplers > Runge-Kutta Sampler
     - Set the scheduler's step count to be the same as the number of steps taken by the `adaptive_pid` controller.
     - Leave the CFG scale unchanged.
   - Tune the scheduler step count.
-- For SDXL, the best results I got were from CFG scales between 7-35.
-```
-Fixed step size
-method: fe_ralston3
-step_size_controller: fixed_scheduled
-scheduler: Align Your Steps
-steps: 28-150
-cfg: 7-35
-```
+- When using `adaptive_pid` or `adaptive_scipy` controllers:
+  - Set `log_absolute_tolerance` to -3.5:
+    - Decrease it to set more strict tolerances (better results) in exchange for slower inference times.
+    - Increase it to set less strict tolerances (worse results) in exchange for faster inference times.
+  - Set `log_relative_tolerance` to be 1-2 more than `log_absolute_tolerance`.
 ```
 Adaptive step size
+
 method: ae_bosh3
 step_size_controller: adaptive_pid
 log_absolute_tolerance: -3.5
@@ -72,6 +70,15 @@ factor_min: 0.2
 factor_max: 10
 max_steps: 2147483647
 min_sigma: 1e-5
+cfg: 7-35
+```
+```
+Fixed step size
+
+method: fe_ralston3
+step_size_controller: fixed_scheduled
+scheduler: Align Your Steps
+steps: 28-150
 cfg: 7-35
 ```
 
@@ -137,7 +144,7 @@ These methods are wrapped implementations of explicit solvers from `scipy.integr
 | ----------- | ----------- | ----------- |
 | method | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Solver method. |
 | step_size_controller | `adaptive_pid`, `fixed_scheduled`, `adaptive_scipy` | Step size controller. |
-| log_absolute_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold below which the solver does not worry about the accuracy of the solution since it is effectively 0. More negative $log_{10}$ values correspond to tighter tolerances and higher quality results. |
+| log_absolute_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold below which the solver does not worry about the accuracy of the solution since it is effectively 0. More negative $log_{10}$ values correspond to more strict tolerances and higher quality results. |
 | log_relative_tolerance | `adaptive_pid`, `adaptive_scipy` | $log_{10}$ of the threshold for the relative error of a single step of the integrator. `log_relative_tolerance` cannot be more negative than `log_absolute_tolerance`. In practice, set the value for `log_relative_tolerance` to be 1 higher than `log_absolute_tolerance`. |
 | pcoeff | `adaptive_pid` | Coefficients for the proportional term of the PID controller. | 
 | icoeff | `adaptive_pid` | Coefficients for the integral term of the PID controller. P/I/D of 0/1/0 corresponds to a basic integral controller. | 
