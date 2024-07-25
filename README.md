@@ -37,11 +37,14 @@ sampling > custom_sampling > samplers > Runge-Kutta Sampler
 ### Best defaults
 - These methods support normal as well as high CFG scales, but the results may depend on the specific model.
 - If you don't know the right step count or CFG scale:
-  1. Try the `adaptive_pid` controller with the base CFG and increment it until the results get worse.
-  2. Tune the CFG to the desired output.
-  3. Try the `fixed_scheduled` controller with AYS scheduler at 28 steps using the same CFG.
-  4. Tune the scheduler step count from 28 steps.
-- For SDXL, the best results I got were from CFG scales between 7-35
+  - Try the `adaptive_pid` controller with the base CFG and increment it until the results get worse.
+  - Tune the CFG to the desired output.
+  - Try the `fixed_scheduled` controller:
+    - Use the Align Your Steps scheduler.
+    - Set the scheduler's step count to be the same as the number of steps taken by the `adaptive_pid` controller.
+    - Leave the CFG scale unchanged.
+  - Tune the scheduler step count.
+- For SDXL, the best results I got were from CFG scales between 7-35.
 ```
 Fixed step size
 method: fe_ralston3
@@ -87,7 +90,7 @@ cfg: 7-35
 > method: Determines the solver method used.
 #### `a`, `f`, and `s` classes
 - `a` = adaptive, `f` = fixed, `s` = scipy, `e` = explicit
-- Use `a`-class methods with either 
+- Use `a`-class methods with either: 
   - `adaptive_pid` for automatically determined step sizes/count.
   - `fixed_scheduled` for scheduler determined step sizes/count.
 - Use `f`-class methods with `fixed_scheduled`.
@@ -98,7 +101,7 @@ cfg: 7-35
 - Try `fe_ralston3`, `ae_bosh3`, and `fe_ssprk3` with the `fixed_scheduled` step size controller.
 
 #### Quality ranking
-Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `batch size 1`, `fixed_scheduled`, `AYS 28 steps`
+Tested on `RTX3090`, `SDXL`, `896x1152`, `CFG=30`, `batch size 1`, `fixed_scheduled`, `Align Your Steps 28 steps`
 | Rank | Name | Method | Order | NFEs | Time |
 | ----------- | ----------- | ----------- | ----------- | ----------- | ----------- |
 | 1 | `fe_ralston3` | Ralston | 3 | 3 | 23.08s |
@@ -175,34 +178,34 @@ The Runge-Kutta methods are a family of methods used for solving approximate sol
 Runge-Kutta methods generally have less discretization error than standard diffusion sampling methods, allowing for the use of high CFG scales (within practical limits) to create high-quality results without artifacts.
 
 ## Conditions for new solvers and methods
-- No implicit solvers
+- No implicit solvers:
   - Implicit solvers require root-finding.
   - This means a backward pass through the model has to be ran to compute the Jacobian.
   - The Jacobian is then used during LBFGS optimization.
   - This is also **very** costly in terms of compute and memory usage.
-- No non-RK methods
+- No non-RK methods:
   - This would cut off linear multistep methods like Adams-Bashforth or Adams predictor-corrector.
   - From my testing, RK methods perform better, even for explicit RK vs. predictor-corrector linear multistep.
-- No duplicate methods
+- No duplicate methods:
   - If two methods have different coefficients, they aren't duplicates.
   - SciPy methods have different coefficients and implementations.
 
 ## Changelog
 #### 24/07/24
-- Added solver settings for `adaptive_scipy`
-- Progress bar improvements
-  - Adaptive solvers now show the number of steps taken
-  - Accurate $\sigma$ info is now displayed
-- Bugfixes and small refactors
+- Added solver settings for `adaptive_scipy`.
+- Progress bar improvements:
+  - Adaptive solvers now show the number of steps taken.
+  - Accurate $\sigma$ info is now displayed.
+- Bugfixes and small refactors.
 #### 23/07/24
-- Installation from ComfyUI-Manager
-- Bugfixes and small refactors
+- Installation from ComfyUI-Manager.
+- Bugfixes and small refactors.
 #### 22/07/24
-- Added wrappers for explicit solvers from `scipy.integrate`
+- Added wrappers for explicit solvers from `scipy.integrate`:
   - `se_RK23`
   - `se_RK45`
   - `se_DOP853`
-- Some notes about the wrapped scipy solvers
+- Some notes about the wrapped scipy solvers:
   - To use the new solvers, select `adaptive_scipy` as the step size controller.
   - No fixed step size controllers are available for wrapped scipy methods. 
   - These methods do not support parallel IVP solve, meaning the batch elements are processed sequentially.
