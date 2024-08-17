@@ -268,7 +268,7 @@ class RungeKuttaSamplerImpl:
         return samples
 
     def _call_scipy(self, model, x: torch.Tensor, sigmas: torch.Tensor, extra_args=None, callback=None, disable=None):
-        c_device = "mps" if HAS_MPS else "cpu"
+        c_device = "cpu"
         c_dtype = np.float32 if (HAS_MPS or HAS_DML) else np.float64
         o_device = x.device
         o_dtype = x.dtype
