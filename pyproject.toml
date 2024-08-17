@@ -2,7 +2,7 @@
 name = "ComfyUI-RK-Sampler"
 description = "Batched Runge-Kutta Samplers for ComfyUI"
 version = "0.0.1"
-license = "LICENSE"
+license = { file = "LICENSE" }
 dependencies = [
   "torchode"
 ]
